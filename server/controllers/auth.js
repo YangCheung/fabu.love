@@ -102,8 +102,10 @@ module.exports = class AuthRouter {
                     .run({ useMongoose: true });
             }
         }
-
+        console.log("======")
+        console.log(body.username)
         const user = await User.findOne({ username: body.username });
+        console.log("---------")
         if (user) {
             let valide = await bcrypt.compare(body.password, user.password)
             if (!valide) {

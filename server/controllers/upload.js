@@ -32,6 +32,9 @@ var { writeFile, readFile, responseWrapper, exec } = require('../helper/util')
 
 var tempDir = path.join(config.fileDir, 'temp')
 var uploadDir = path.join(config.fileDir, 'upload')
+var downloadDir = path.join(config.fileDir, 'download')
+
+const http = require('http');
 
 createFolderIfNeeded(tempDir)
 
@@ -53,11 +56,44 @@ const storage = multer.diskStorage({
 const tag = tags(['上传']);
 const upload = multer({ storage });
 
+function downloadFile(url) {
+    return new Promise((resolve, reject) => {
+        const request = http.get(url, res => {
+            var filePath = path.join(uploadDir, "/download/file.apk")
+            const writeStream = fs.createWriteStream(filePath);
+            res.pipe(writeStream);
+            writeStream.on('close', function () {
+                resolve(filePath)
+            });
+        })
+    })
+}
+
 module.exports = class UploadRouter {
+    @request('post', '/api/app/uploadWithUrl')
+    @formData({
+        archiveUrl: {
+            type: 'data',
+            required: 'true'
+        }
+    })
+    static async uploadWithUrl(ctx, next) {
+        var url = ctx.request.body.archiveUrl
+        console.log("=======")
+        console.log(url)
+        createFolderIfNeeded(path.join(uploadDir, "/download"))
+        var file = await downloadFile(url)
+        console.log(file)
+    }
+
     @request('post', '/api/apps/{teamId}/upload')
     @summary('上传apk或者ipa文件到服务器')
     @tag
     @formData({
+        // archiveUrl: {
+        //     type: 'String',
+        //     required: 'false'
+        // },
         file: {
             type: 'file',
             required: 'true',
@@ -68,6 +104,7 @@ module.exports = class UploadRouter {
     @middlewares([upload.single('file')])
     static async upload(ctx, next) {
         var file = ctx.req.file
+        var archiveUrl = ctx.req.archiveUrl
         const { teamId } = ctx.validatedParams;
         var team = await Team.findById(teamId)
         if (!team) {

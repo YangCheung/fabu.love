@@ -21,12 +21,16 @@ services:
       FABU_UPLOAD_DIR: /fabu/upload
     ports: 
       - "9898:9898"
+      - "9229:9229"
     volumes:
       - ./upload:/fabu/upload
+      - ../server:/opt/server
+      - /opt/server/node_modules/
     depends_on:
       - mongo
     networks:
       - appnet
+    command: nodemon --exec babel-node --inspect=0.0.0.0 index.js
 
 networks:
   appnet:
