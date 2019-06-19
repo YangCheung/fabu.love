@@ -25,16 +25,16 @@ var helper = new Helper()
 app.use(cors())
 app.use(bodyParser())
 app.use(serve(path.resolve(config.fileDir)))
-app.use(serve(path.join(__dirname, '..', 'client/dist')));
+// app.use(serve(path.join(__dirname, '..', 'client/dist')));
 
-app.use(function(ctx, next) {
-    if (ctx.request.path.indexOf("/api") != 0) {
-        ctx.response.type = 'html';
-        ctx.response.body = fs.readFileSync(path.join(__dirname, '..', 'client/dist/index.html'), 'utf8');
-    } else {
-        return next()
-    }
-})
+// app.use(function(ctx, next) {
+//     if (ctx.request.path.indexOf("/api") != 0) {
+//         ctx.response.type = 'html';
+//         ctx.response.body = fs.readFileSync(path.join(__dirname, '..', 'client/dist/index.html'), 'utf8');
+//     } else {
+//         return next()
+//     }
+// })
 
 var middleware = koajwt({ secret: config.secret, debug: true }).unless({
     path: [

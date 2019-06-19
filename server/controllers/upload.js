@@ -34,7 +34,7 @@ var tempDir = path.join(config.fileDir, 'temp')
 var uploadDir = path.join(config.fileDir, 'upload')
 var downloadDir = path.join(config.fileDir, 'download')
 
-const http = require('http');
+const http = require('https');
 
 createFolderIfNeeded(tempDir)
 
@@ -69,31 +69,62 @@ function downloadFile(url) {
     })
 }
 
+// String.prototype.endsWith = function(suffix) {
+//     return this.indexOf(suffix, this.length - suffix.length) !== -1;
+// };
+
 module.exports = class UploadRouter {
-    @request('post', '/api/app/uploadWithUrl')
-    @formData({
+    @request('post', '/api/apps/uploadWithUrl')
+    @tag
+    @body({
         archiveUrl: {
-            type: 'data',
+            type: 'String',
             required: 'true'
+        },
+        changeLog: {
+            type: 'string',
+            required: true
+        },
+        teamId: {
+            type: 'string',
+            required: true
         }
     })
     static async uploadWithUrl(ctx, next) {
-        var url = ctx.request.body.archiveUrl
-        console.log("=======")
-        console.log(url)
-        createFolderIfNeeded(path.join(uploadDir, "/download"))
-        var file = await downloadFile(url)
-        console.log(file)
+        console.log("=======");
+        console.log(ctx.validatedBody);
+        const { teamId, archiveUrl, changeLog } = ctx.validatedBody;
+        var team = await Team.findById(teamId)
+        if (!team) {
+            throw new Error("没有找到该团队")
+        }
+        console.log(typeof archiveUrl)
+        if(archiveUrl) {
+            if (!archiveUrl.endsWith(".ipa") && !archiveUrl.endsWith(".apk")) { 
+                throw (new Error("文件类型有误,仅支持IPA或者APK文件的上传."))
+            }
+            
+            createFolderIfNeeded(path.join(uploadDir, "/download"))
+            var archivePath = await downloadFile(archiveUrl)
+            var result = await parseAppAndInsertToDB({path: archivePath}, ctx.state.user.data, team, archiveUrl, changeLog);
+            await Version.updateOne({ _id: result.version._id }, {
+                released: true
+            })
+            
+            var app = await App.updateOne({ _id: result.app._id }, {
+                releaseVersionId: result.version._id,
+                releaseVersionCode: result.version.versionCode
+            })
+            ctx.body = responseWrapper(result);
+        } else {
+            throw (new Error("参数有误，archiveUrl is null"))
+        }        
     }
 
     @request('post', '/api/apps/{teamId}/upload')
     @summary('上传apk或者ipa文件到服务器')
     @tag
     @formData({
-        // archiveUrl: {
-        //     type: 'String',
-        //     required: 'false'
-        // },
         file: {
             type: 'file',
             required: 'true',
@@ -104,7 +135,6 @@ module.exports = class UploadRouter {
     @middlewares([upload.single('file')])
     static async upload(ctx, next) {
         var file = ctx.req.file
-        var archiveUrl = ctx.req.archiveUrl
         const { teamId } = ctx.validatedParams;
         var team = await Team.findById(teamId)
         if (!team) {
@@ -137,7 +167,7 @@ module.exports = class UploadRouter {
     }
 }
 
-async function parseAppAndInsertToDB(file, user, team) {
+async function parseAppAndInsertToDB(file, user, team, archiveUrl, changeLog) {
     var filePath = file.path
     var parser, extractor;
     if (path.extname(filePath) === ".ipa") {
@@ -150,19 +180,21 @@ async function parseAppAndInsertToDB(file, user, team) {
         throw (new Error("文件类型有误,仅支持IPA或者APK文件的上传."))
     }
 
-    //解析ipa和apk文件
     var info = await parser(filePath);
+    info.size = fs.statSync(filePath).size
     var fileName = info.bundleId + "_" + info.versionStr + "_" + info.versionCode
-        //解析icon图标
     var icon = await extractor(filePath, fileName, team);
-
-    //移动文件到对应目录
-    var fileRelatePath = path.join(team.id, info.platform)
-    createFolderIfNeeded(path.join(uploadDir, fileRelatePath))
-    var fileRealPath = path.join(uploadDir, fileRelatePath, fileName + path.extname(filePath))
-    await fs.renameSync(filePath, fileRealPath)
-    info.downloadUrl = path.join(uploadPrefix, fileRelatePath, fileName + path.extname(filePath))
-
+    
+    if (archiveUrl) {
+        info.downloadUrl = archiveUrl
+    } else {
+        var fileRelatePath = path.join(team.id, info.platform)
+        createFolderIfNeeded(path.join(uploadDir, fileRelatePath))
+        var fileRealPath = path.join(uploadDir, fileRelatePath, fileName + path.extname(filePath))
+        await fs.renameSync(filePath, fileRealPath)
+        info.downloadUrl = path.join(uploadPrefix, fileRelatePath, fileName + path.extname(filePath))
+    }
+   
     var app = await App.findOne({ 'platform': info['platform'], 'bundleId': info['bundleId'], 'ownerId': team._id })
     if (!app) {
         info.creator = user.username;
@@ -173,30 +205,21 @@ async function parseAppAndInsertToDB(file, user, team) {
         app.ownerId = team._id;
         app.currentVersion = info.versionCode
         await app.save()
-        info.uploader = user.username;
-        info.uploaderId = user._id;
-        info.size = fs.statSync(fileRealPath).size
-        var version = Version(info)
-        version.appId = app._id;
-        if (app.platform == 'ios') {
-            version.installUrl = mapInstallUrl(app.id, version.id)
-        } else {
-            version.installUrl = info.downloadUrl
-        }
-        await version.save()
-        return { 'app': app, 'version': version }
     }
     var version = await Version.findOne({ appId: app.id, versionCode: info.versionCode })
     if (!version) {
         info.uploader = user.username;
         info.uploaderId = user._id;
-        info.size = fs.statSync(fileRealPath).size
+
         var version = Version(info)
         version.appId = app._id;
         if (app.platform == 'ios') {
             version.installUrl = mapInstallUrl(app.id, version.id)
         } else {
-            version.installUrl = `${config.baseUrl}/${info.downloadUrl}`
+            version.installUrl = info.downloadUrl.startsWith("http")? info.downloadUrl : `${config.baseUrl}/${info.downloadUrl}`
+        }
+        if(changeLog && archiveUrl) {
+            version.changelog = changeLog
         }
         await version.save()
         return { 'app': app, 'version': version }

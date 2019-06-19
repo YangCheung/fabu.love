@@ -11,6 +11,7 @@
     "build": "node build/build.js"
   },
   "dependencies": {
+    "aliyun-oss-webpack-plugin": "^2.0.1",
     "axios": "^0.17.1",
     "babel-polyfill": "^6.26.0",
     "element-ui": "^2.1.0",
@@ -20,7 +21,8 @@
     "vue-infinite-scroll": "^2.0.2",
     "vue-lazyload": "^1.1.4",
     "vue-qr": "^1.2.8",
-    "vue-router": "^3.0.1"
+    "vue-router": "^3.0.1",
+    "webpack-aliyun-oss-plugin": "^2.1.0"
   },
   "devDependencies": {
     "autoprefixer": "^7.1.2",

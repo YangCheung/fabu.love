@@ -10,6 +10,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const ExtractTextPlugin = require('extract-text-webpack-plugin')
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+const AliyunOSSPlugin = require("aliyun-oss-webpack-plugin");
 
 const env = require('../config/prod.env')
 
@@ -24,8 +25,9 @@ const webpackConfig = merge(baseWebpackConfig, {
   devtool: config.build.productionSourceMap ? config.build.devtool : false,
   output: {
     path: config.build.assetsRoot,
-    filename: utils.assetsPath('js/[name].[chunkhash].js'),
-    chunkFilename: utils.assetsPath('js/[id].[chunkhash].js')
+    // filename: utils.assetsPath('js/[name].[chunkhash].js'),
+    // chunkFilename: utils.assetsPath('js/[id].[chunkhash].js'),
+    publicPath: 'https://financeoss.tigerobo.com/download/assets/'
   },
   plugins: [
     // http://vuejs.github.io/vue-loader/en/workflow/production.html
@@ -115,7 +117,20 @@ const webpackConfig = merge(baseWebpackConfig, {
         to: config.build.assetsSubDirectory,
         ignore: ['.*']
       }
-    ])
+    ]),
+    new AliyunOSSPlugin({
+      // from: ['./dist/**', '!./dist/**/*.html'],
+      // dist: 'exchange_account/',
+      region: 'oss-cn-shanghai',
+      accessKeyId: 'LTAITBXMi8z8wm3y',
+      accessKeySecret: 'aPmixazLCBxu94cfqHK86RvZ5iSMbu',
+      bucket: 'finance-cdn',
+      setHeaders(filePath) {
+        return {
+          'Cache-Control': 'max-age=31536000'
+        }
+      }
+    })
   ]
 })
 
