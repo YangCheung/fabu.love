@@ -1,6 +1,5 @@
 version: '3'
 services:
-
   mongo:
     container_name: mongo
     image: mongo
@@ -11,11 +10,28 @@ services:
     networks:
       - appnet
 
-  server:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    volumes:
+      - ./upload:/fabu/upload
+      - ../server:/opt/server
+      - ../client:/opt/client
+      - ./logs:/opt/logs/
+    networks:
+      - appnet
+    links:
+      - nodeserver
+    ports:
+      - "8080:8080"
+
+  nodeserver:
     build:
       context: ../
       dockerfile: docker/Dockerfile
     environment:
+      WAIT_HOSTS: mongo:27017
       FABU_DB_HOST: mongo
       # FABU_BASE_URL: https://fabu.apppills.com 正式环境部署请打开注释，并修改为域名为自己的域名
       FABU_UPLOAD_DIR: /fabu/upload
@@ -26,11 +42,14 @@ services:
       - ./upload:/fabu/upload
       - ../server:/opt/server
       - /opt/server/node_modules/
+      - ../client:/opt/client
+      - ./:/entry
     depends_on:
       - mongo
     networks:
       - appnet
-    command: nodemon --exec babel-node --inspect=0.0.0.0 index.js
+    entrypoint: /bin/bash /entry/docker-entrypoint.sh -t 0 mongo:27017 -- npm run start
+    # nodemon --exec babel-node --inspect=0.0.0.0 index.js
 
 networks:
   appnet:

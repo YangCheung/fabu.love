@@ -5,13 +5,13 @@ RUN npm install -g babel-cli \
     && npm install -g cnpm --registry=https://registry.npm.taobao.org \
     && npm install -g nodemon
 # 设置目录
-RUN mkdir -p /opt/data /opt/server /opt/web /opt/logs /var/cache/nginx/client_temp
+# RUN mkdir -p /opt/data /opt/server /opt/web /opt/logs /var/cache/nginx/client_temp
 
 
 # 增加前端页面显示
 WORKDIR /opt/client
 ADD client /opt/client
-RUN cnpm install && npm run build
+# RUN cnpm install && npm run build
 
 # 增加server
 WORKDIR /opt/server
