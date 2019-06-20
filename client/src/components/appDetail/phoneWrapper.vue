@@ -15,7 +15,7 @@
       </div>
 
       <el-button v-if="showDownLoadBtn" @click="clickDownLoadBtn" class="downloadBtn" type="primary" round><i :class="this.platformStr === 'ios' ? 'icon-ic_ios':'icon-ic_andr'"></i>    下载安装</el-button>
-      <div class="info">
+      <div class="changelog">
         <p class="desc">更新说明</p>
         <p class="desc">{{this.appVersionInfo.changelog}}</p>
       </div>
