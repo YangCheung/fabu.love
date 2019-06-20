@@ -24,7 +24,7 @@ services:
     links:
       - nodeserver
     ports:
-      - "8080:8080"
+      - "80:8080"
 
   nodeserver:
     build:
@@ -43,7 +43,7 @@ services:
       - ../server:/opt/server
       - /opt/server/node_modules/
       - ../client:/opt/client
-      - ./:/entry
+      - ./entry:/entry
     depends_on:
       - mongo
     networks:
